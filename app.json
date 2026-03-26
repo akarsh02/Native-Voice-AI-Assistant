@@ -20,6 +20,7 @@
       "bundleIdentifier": "com.akarsh-joinnow.mobile-ai-assistant"
     },
     "android": {
+      "package": "com.akarsh_joinnow.mobile_ai_assistant",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -27,14 +28,33 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE"
       ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-speech-recognition"
-    ]
+      "expo-speech-recognition",
+      [
+        "react-native-background-actions",
+        {
+          "android": {
+            "notification": {
+              "channelName": "Hey Mobile Wake Word",
+              "channelDescription": "Persistent wake word listener"
+            },
+            "foregroundServiceType": "microphone"
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "34f83d41-b3d4-4694-bdef-448816255993"
+      }
+    }
   }
 }

@@ -9,6 +9,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Location from 'expo-location';
 import * as Calendar from 'expo-calendar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { startWakeWordService, stopWakeWordService } from './WakeWordService';
 
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
@@ -116,7 +117,47 @@ const functionDeclarations = [
       },
       required: ["key"],
     },
-  }
+  },
+  {
+    name: "create_task",
+    description: "Creates a new to-do task and saves it persistently. Use when the user says 'add a task', 'remind me to do', 'create a to-do', etc.",
+    parameters: {
+      type: "object",
+      properties: {
+        task: { type: "string", description: "The task description to save" }
+      },
+      required: ["task"],
+    },
+  },
+  {
+    name: "list_tasks",
+    description: "Lists all pending to-do tasks the user has created.",
+    parameters: { type: "object", properties: {} },
+  },
+  {
+    name: "complete_task",
+    description: "Marks a specific task as done and removes it from the list.",
+    parameters: {
+      type: "object",
+      properties: {
+        task_index: { type: "number", description: "The index (1-based) of the task to mark as complete" }
+      },
+      required: ["task_index"],
+    },
+  },
+  {
+    name: "set_daily_reminder",
+    description: "Schedules a recurring daily notification at a specific time (e.g., 'remind me every day at 8:30 AM').",
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Title of the daily reminder" },
+        hour: { type: "number", description: "Hour of the day (0-23)" },
+        minute: { type: "number", description: "Minute of the hour (0-59)" }
+      },
+      required: ["title", "hour", "minute"],
+    },
+  },
 ];
 
 export default function App() {
@@ -150,15 +191,21 @@ export default function App() {
   const chatSession = useRef(null);
   const scrollViewRef = useRef(null);
 
+  // Start background wake word service when app launches
+  useEffect(() => {
+    startWakeWordService();
+    return () => stopWakeWordService(); // Stop when app is fully unmounted
+  }, []);
+
   useEffect(() => {
     if (apiKey) {
       const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({
         model: "gemini-2.5-flash",
         tools: [{ functionDeclarations }],
-        systemInstruction: "You are a helpful mobile AI assistant. Your name is Assistant. When the user asks a general question (like 'famous movies', 'how to code', 'capital of France'), answer it directly using your incredibly vast, built-in LLM knowledge. DO NOT trigger a tool unless the user explicitly asks for a device action (like 'Open YouTube', 'Set a reminder', 'What is my location'). Be concise, as your response will be spoken out loud.",
+        systemInstruction: "You are a helpful mobile AI assistant named Assistant. Your primary goal is to help the user manage their life through voice. \n\n1. For general knowledge, answer directly and concisely.\n2. For device actions (Open App, Gallery, GPS, Calendar, Math, Clipboard), use the specific tools provided.\n3. For management (Tasks, Memories, Daily Routines), use the appropriate storage tools. Proactively offer to 'save to memory' or 'add a task' if the user mentions something important. For daily routines, use 'set_daily_reminder' to ensure they get notified every day at the right time.\n\nKeep responses short and clear for voice output.",
       });
       chatSession.current = model.startChat({});
-      addMessage("AI", "Hello! I am your Native Mobile Agent. Ask me to open your gallery, calculate math, check today's gold price, or set a daily routine reminder!");
+      addMessage("AI", "Hello! I am your Native Mobile Agent. I can now manage your tasks, remember your preferences, and schedule your daily routine reminders. Try saying 'Hey Mobile, remind me every day at 7 AM to drink water'!");
     }
   }, [apiKey]);
 
@@ -224,7 +271,7 @@ export default function App() {
     
     // Check for wake word "hey assistant"
     const lower = currentTranscript.toLowerCase();
-    const wakeWord = 'hey assistant';
+    const wakeWord = 'hey mobile';
     
     if (event.isFinal) {
       if (lower.includes(wakeWord)) {
@@ -453,6 +500,65 @@ export default function App() {
           result = "Failed to recall memory. " + e.message;
         }
         break;
+      case 'create_task':
+        try {
+          const existingRaw = await AsyncStorage.getItem('user_tasks');
+          const tasks = existingRaw ? JSON.parse(existingRaw) : [];
+          tasks.push({ task: functionCall.args.task, done: false, createdAt: new Date().toISOString() });
+          await AsyncStorage.setItem('user_tasks', JSON.stringify(tasks));
+          result = `Task "${functionCall.args.task}" added successfully. You now have ${tasks.length} task(s).`;
+          speakText(`Got it. I've added that to your task list.`);
+        } catch (e) {
+          result = "Failed to create task. " + e.message;
+        }
+        break;
+      case 'list_tasks':
+        try {
+          const tasksRaw = await AsyncStorage.getItem('user_tasks');
+          const tasks = tasksRaw ? JSON.parse(tasksRaw) : [];
+          const pending = tasks.filter(t => !t.done);
+          if (pending.length === 0) {
+            result = "You have no pending tasks. All clear!";
+          } else {
+            result = `You have ${pending.length} task(s): ` + pending.map((t, i) => `${i + 1}. ${t.task}`).join(', ');
+          }
+        } catch (e) {
+          result = "Failed to list tasks. " + e.message;
+        }
+        break;
+      case 'complete_task':
+        try {
+          const tasksRaw2 = await AsyncStorage.getItem('user_tasks');
+          const tasks2 = tasksRaw2 ? JSON.parse(tasksRaw2) : [];
+          const pending2 = tasks2.filter(t => !t.done);
+          const idx = functionCall.args.task_index - 1;
+          if (idx < 0 || idx >= pending2.length) {
+            result = `Task number ${functionCall.args.task_index} not found.`;
+          } else {
+            const completed = pending2[idx];
+            tasks2.find(t => t.task === completed.task && !t.done).done = true;
+            await AsyncStorage.setItem('user_tasks', JSON.stringify(tasks2));
+            result = `Task "${completed.task}" marked as complete. Great job!`;
+            speakText(`Well done! I've marked that task as complete.`);
+          }
+        } catch (e) {
+          result = "Failed to complete task. " + e.message;
+        }
+        break;
+      case 'set_daily_reminder':
+        try {
+          const { title: dTitle, hour, minute } = functionCall.args;
+          await Notifications.scheduleNotificationAsync({
+            content: { title: dTitle, body: `Daily routine: ${dTitle}`, sound: true },
+            trigger: { hour, minute, repeats: true },
+          });
+          const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+          result = `Successfully scheduled daily reminder "${dTitle}" for ${timeStr} every day.`;
+          speakText(`I've set a daily routine reminder for ${dTitle} at ${timeStr}.`);
+        } catch (e) {
+          result = "Failed to schedule daily reminder. " + e.message;
+        }
+        break;
       default:
         result = "Function not recognized.";
     }
@@ -482,6 +588,7 @@ export default function App() {
     setIsProcessing(true);
     setContinuousMode(false); // Pause auto-listening while processing
     ExpoSpeechRecognitionModule.stop();
+    stopWakeWordService(); // Pause background wake word while mic is in use
 
     try {
       const result = await chatSession.current.sendMessage(msg);
@@ -509,6 +616,8 @@ export default function App() {
       addMessage("AI", "Network or API Error: " + e.message);
     }
     setIsProcessing(false);
+    // Restart background wake word detection after AI responds
+    startWakeWordService();
   };
 
   return (
@@ -542,7 +651,7 @@ export default function App() {
           style={[styles.toggleBtn, continuousMode ? styles.toggleBtnActive : null]}
           onPress={toggleContinuousMode}
         >
-          <Text style={styles.toggleBtnText}>{continuousMode ? "'Hey Assistant' ON" : "'Hey Assistant' OFF"}</Text>
+          <Text style={styles.toggleBtnText}>{continuousMode ? "'Hey Mobile' ON" : "'Hey Mobile' OFF"}</Text>
         </TouchableOpacity>
       </View>
 
