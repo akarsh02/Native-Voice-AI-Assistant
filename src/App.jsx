@@ -11,12 +11,14 @@ import {
   TrendingUp,
   AlertCircle,
   Menu,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
 import OptionsRadar from './components/OptionsRadar';
 import InsiderRadar from './components/InsiderRadar';
 import ParkingRadar from './components/ParkingRadar';
 import HabitTracker from './components/HabitTracker';
+import AiAssistant from './components/AiAssistant';
 
 const RadarSweep = () => (
   <motion.div 
@@ -35,6 +37,7 @@ const App = () => {
     { id: 'insiders', name: 'Insider Trades', icon: <Briefcase size={20} />, color: '#00E5FF' },
     { id: 'parking', name: 'Free Parking', icon: <MapPin size={20} />, color: '#FFD700' },
     { id: 'habits', name: 'Habit Radar', icon: <CheckCircle size={20} />, color: '#A855F7' },
+    { id: 'ai', name: 'Radar AI', icon: <Sparkles size={20} />, color: '#EAB308' },
   ];
 
   return (
@@ -144,6 +147,7 @@ const App = () => {
               {activeTab === 'insiders' && <InsiderRadar />}
               {activeTab === 'parking' && <ParkingRadar />}
               {activeTab === 'habits' && <HabitTracker />}
+              {activeTab === 'ai' && <AiAssistant />}
             </motion.div>
           </AnimatePresence>
         </main>
