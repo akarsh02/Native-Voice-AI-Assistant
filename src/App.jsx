@@ -31,6 +31,20 @@ const RadarSweep = () => (
 const App = () => {
   const [activeTab, setActiveTab] = useState('options');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [isPro, setIsPro] = useState(localStorage.getItem('radar_pro') === 'true');
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleUpgrade = () => {
+    setIsProcessing(true);
+    // Simulate payment processing
+    setTimeout(() => {
+      setIsProcessing(false);
+      setIsPro(true);
+      setShowCheckout(false);
+      localStorage.setItem('radar_pro', 'true');
+    }, 2500);
+  };
 
   const tabs = [
     { id: 'options', name: 'Options Flow', icon: <Activity size={20} />, color: '#00FF41' },
@@ -154,27 +168,113 @@ const App = () => {
 
         <RadarSweep />
 
-        {/* Pro Alert Popup */}
-        <motion.div 
-          initial={{ x: 300, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ delay: 2 }}
-          className="fixed bottom-8 right-8 glass p-4 max-w-xs border-l-4 border-[#00FF41] z-50 bg-[#0A0A0B]/90 shadow-2xl"
-        >
-          <div className="flex items-start gap-4">
-            <div className="p-2 bg-[#00FF41]/10 rounded-lg">
-              <AlertCircle size={20} color="#00FF41" />
+        {/* Pro Alert Popup / Upsell */}
+        {!isPro && (
+          <motion.div 
+            initial={{ x: 300, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 2 }}
+            className="fixed bottom-8 right-8 glass p-4 max-w-xs border-l-4 border-[#00FF41] z-50 bg-[#0A0A0B]/90 shadow-2xl"
+          >
+            <div className="flex items-start gap-4">
+              <div className="p-2 bg-[#00FF41]/10 rounded-lg">
+                <AlertCircle size={20} color="#00FF41" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#00FF41]">Pro Alert</p>
+                <h4 className="text-sm font-bold mt-1">Unusual Activity: $NVDA</h4>
+                <p className="text-xs text-zinc-500 mt-1">Massive Call sweep detected. 12,000 contracts bought above ask.</p>
+                <button 
+                  onClick={() => setShowCheckout(true)}
+                  className="mt-3 w-full py-2 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded hover:bg-[#00FF41] transition-colors"
+                >
+                   Upgrade for Alarms
+                </button>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#00FF41]">Pro Alert</p>
-              <h4 className="text-sm font-bold mt-1">Unusual Activity: $NVDA</h4>
-              <p className="text-xs text-zinc-500 mt-1">Massive Call sweep detected. 12,000 contracts bought above ask.</p>
-              <button className="mt-3 w-full py-2 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded hover:bg-[#00FF41] transition-colors">
-                 Upgrade for Alarms
-              </button>
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        )}
+
+        {/* Checkout Modal */}
+        <AnimatePresence>
+          {showCheckout && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            >
+              <motion.div 
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                className="glass max-w-md w-full p-8 flex flex-col gap-6 relative overflow-hidden"
+              >
+                <button 
+                  onClick={() => setShowCheckout(false)}
+                  className="absolute top-4 right-4 text-zinc-500 hover:text-white"
+                >
+                  <X size={20} />
+                </button>
+
+                <div className="text-center">
+                  <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-[#00FF41] to-[#00E5FF] flex items-center justify-center mx-auto mb-4 pulsate">
+                    <ShieldCheck size={32} color="#000" />
+                  </div>
+                  <h3 className="text-2xl font-bold tracking-tight">Upgrade to Radar Pro</h3>
+                  <p className="text-zinc-500 text-sm mt-2">Get real-time alarms, advanced filters, and unlimited AI scans.</p>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  <div className="glass p-4 border-white/5">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">Subscription</span>
+                      <span className="text-sm font-bold">$19.99 / mo</span>
+                    </div>
+                    <p className="text-[10px] text-[#00FF41] font-bold">ALL RADIARS UNLOCKED</p>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] uppercase tracking-widest font-black text-zinc-500">Card Number</label>
+                      <input type="text" placeholder="xxxx xxxx xxxx 4242" className="glass bg-transparent p-3 text-sm border-white/5 outline-none focus:border-[#00FF41]/40" />
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="flex flex-col gap-1 flex-1">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-zinc-500">Expiry</label>
+                        <input type="text" placeholder="MM/YY" className="glass bg-transparent p-3 text-sm border-white/5 outline-none" />
+                      </div>
+                      <div className="flex flex-col gap-1 flex-1">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-zinc-500">CVC</label>
+                        <input type="text" placeholder="***" className="glass bg-transparent p-3 text-sm border-white/5 outline-none" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={handleUpgrade}
+                  disabled={isProcessing}
+                  className="w-full py-4 bg-[#00FF41] text-black font-black uppercase tracking-widest rounded-xl hover:brightness-110 transition-all flex items-center justify-center gap-3 active:scale-95"
+                >
+                  {isProcessing ? (
+                    <>
+                      <div className="h-4 w-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                      <span>Processing...</span>
+                    </>
+                  ) : (
+                    <span>Activate Pro Access</span>
+                  )}
+                </button>
+
+                <p className="text-[9px] text-center text-zinc-600 uppercase tracking-widest leading-relaxed">
+                  SECURE CRYPTO-LINKED PAYMENT. CANCEL ANYTIME. <br/>
+                  © 2026 THE RADAR INTELLIGENCE SYSTEMS.
+                </p>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
       </div>
     </div>
   );
