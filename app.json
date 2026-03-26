@@ -37,19 +37,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-speech-recognition",
-      [
-        "react-native-background-actions",
-        {
-          "android": {
-            "notification": {
-              "channelName": "Hey Mobile Wake Word",
-              "channelDescription": "Persistent wake word listener"
-            },
-            "foregroundServiceType": "microphone"
-          }
-        }
-      ]
+      "expo-speech-recognition"
     ],
     "extra": {
       "eas": {
